@@ -20,7 +20,7 @@ struct NewsList {
   loadNews(): void {
     this.isLoading = true;
     this.errorMessage = '';
-    
+
     NewsService.fetchNews(this.sourceId)
       .then((items: NewsItem[]) => {
         this.newsItems = items;
@@ -97,7 +97,7 @@ struct NewsList {
             .margin({ top: 16 })
         }
         .justifyContent(FlexAlign.Center)
-        .alignItems(ItemAlign.Center)
+        .alignItems(HorizontalAlign.Center)
         .width('100%')
         .height('100%')
       } else if (this.errorMessage) {
@@ -105,18 +105,18 @@ struct NewsList {
           Text('⚠️')
             .fontSize(48)
             .margin({ bottom: 16 })
-          
+
           Text(this.errorMessage)
             .fontSize(14)
             .textAlign(TextAlign.Center)
             .margin({ bottom: 16, left: 16, right: 16 })
-          
+
           Button('Retry')
             .onClick(() => this.onRetry())
             .margin({ bottom: 16 })
         }
         .justifyContent(FlexAlign.Center)
-        .alignItems(ItemAlign.Center)
+        .alignItems(HorizontalAlign.Center)
         .width('100%')
         .height('100%')
         .padding(16)
@@ -127,7 +127,7 @@ struct NewsList {
             .fontColor(Color.Gray)
         }
         .justifyContent(FlexAlign.Center)
-        .alignItems(ItemAlign.Center)
+        .alignItems(HorizontalAlign.Center)
         .width('100%')
         .height('100%')
       } else {
@@ -159,9 +159,8 @@ struct NewsList {
                   }
 
                   Blank()
-
                   if (item.pubDate) {
-                    Text(this.formatDate(item.pubDate))
+                    Text(this.formatDate(String(item.pubDate)))
                       .fontSize(12)
                       .fontColor(Color.Gray)
                   }
@@ -174,12 +173,17 @@ struct NewsList {
               .borderRadius(8)
               .margin({ bottom: 8 })
             }
-            .onClick(() => this.openArticle(item.link))
+            .onClick(() => this.openArticle(item.url))
           }, (item: NewsItem) => item.id)
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+        .padding({
+          left: 8,
+          right: 8,
+          top: 8,
+          bottom: 8
+        })
       }
     }
     .width('100%')

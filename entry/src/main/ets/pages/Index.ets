@@ -1,281 +1,242 @@
-import { NewsItem } from '../models/NewsItem';
+import { NewsItem } from '../common/models/NewsItem';
+import { NewsService } from '../common/network/newsService';
+import { ChannelManager, Channel } from '../common/models/ChannelManager';
+import { router } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 @Entry
 @Component
 struct Index {
+  @State currentChannelIndex: number = 0;
+  @State channels: Channel[] = [];
   @State newsItems: NewsItem[] = [];
-  @State loading: boolean = true;
+  @State loading: boolean = false;
   @State error: string = '';
 
   aboutToAppear() {
-    this.loadNews();
+    this.channels = ChannelManager.getChannels();
+    this.loadChannelNews();
   }
 
-  loadNews() {
+  async loadChannelNews() {
+    if (this.loading) {
+      return;
+    }
+
     this.loading = true;
     this.error = '';
 
-    // Simulate loading news items
-    setTimeout(() => {
-      this.newsItems = [
-        {
-          id: '1',
-          title: 'Breaking News: New Technology Breakthrough Announced Today',
-          source: 'Tech Daily',
-          publishTime: Date.now() - 3600000
-        },
-        {
-          id: '2',
-          title: 'Global Markets React to Economic Updates',
-          source: 'Financial Times',
-          publishTime: Date.now() - 7200000
-        },
-        {
-          id: '3',
-          title: 'Science Discovers New Species in Amazon',
-          source: 'Nature Weekly',
-          publishTime: Date.now() - 86400000
-        },
-        {
-          id: '4',
-          title: 'Sports Team Wins Championship After Thrilling Match',
-          source: 'Sports News',
-          publishTime: Date.now() - 172800000
-        },
-        {
-          id: '5',
-          title: 'Entertainment: New Film Breaks Box Office Records This Weekend',
-          source: 'Entertainment Weekly',
-          publishTime: Date.now() - 259200000
-        }
-      ];
+    try {
+      const currentChannel = this.channels[this.currentChannelIndex];
+      hilog.info(0x0000, 'Index', `Loading channel: ${currentChannel.name}`);
+
+      // 获取当前频道的所有数据源
+      const sourceResults = await NewsService.fetchMultipleSources(currentChannel.sourceIds);
+
+      // 合并所有数据源的新闻
+      const allNews: NewsItem[] = [];
+      sourceResults.forEach((items) => {
+        allNews.push(...items);
+      });
+
+      // 按时间排序
+      allNews.sort((a, b) => b.pubDate - a.pubDate);
+
+      // 取前50条
+      this.newsItems = allNews.slice(0, 50);
       this.loading = false;
-    }, 800);
+
+      hilog.info(0x0000, 'Index', `Loaded ${this.newsItems.length} news items`);
+    } catch (err) {
+      this.loading = false;
+      this.error = err instanceof Error ? err.message : '加载失败';
+      hilog.error(0x0000, 'Index', 'Error loading news: %{public}s', this.error);
+    }
   }
 
-  formatPublishTime(timestamp: number): string {
-    const now = Date.now();
-    const diff = now - timestamp;
+  onChannelChange(index: number) {
+    if (this.currentChannelIndex !== index) {
+      this.currentChannelIndex = index;
+      this.newsItems = [];
+      this.loadChannelNews();
+    }
+  }
 
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (seconds < 60) {
-      return $r('app.string.just_now');
-    } else if (minutes < 60) {
-      return `${minutes} ${minutes === 1 ? $r('app.string.minute_ago') : $r('app.string.minutes_ago')}`;
-    } else if (hours < 24) {
-      return `${hours} ${hours === 1 ? $r('app.string.hour_ago') : $r('app.string.hours_ago')}`;
-    } else if (days < 7) {
-      return `${days} ${days === 1 ? $r('app.string.day_ago') : $r('app.string.days_ago')}`;
-    } else {
-      const date = new Date(timestamp);
-      return date.toLocaleDateString();
+  openArticle(item: NewsItem) {
+    try {
+      router.pushUrl({
+        url: 'pages/WebViewPage',
+        params: {
+          url: item.mobileUrl || item.url,
+          title: item.title
+        }
+      });
+    } catch (error) {
+      hilog.error(0x0000, 'Index', 'Failed to open article: %{public}s', JSON.stringify(error));
     }
   }
 
   build() {
     Column() {
-      if (this.loading) {
-        Column() {
-          LoadingProgress()
-            .width($r('app.float.loading_size'))
-            .height($r('app.float.loading_size'))
-            .color(Color.Blue)
+      // 顶部标题栏
+      Row() {
+        Text('Brief')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
 
-          Text($r('app.string.loading'))
-            .fontSize($r('app.float.secondary_font_size'))
-            .margin({ top: $r('app.float.large_margin') })
-            .fontColor(Color.Grey)
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-      } else if (this.error) {
-        Column() {
-          Text($r('app.string.error_title'))
-            .fontSize($r('app.float.subtitle_font_size'))
-            .fontWeight(FontWeight.Bold)
-            .margin({ bottom: $r('app.float.medium_margin') })
+        Blank()
 
-          Text(this.error)
-            .fontSize($r('app.float.secondary_font_size'))
-            .fontColor(Color.Grey)
-            .textAlign(TextAlign.Center)
-            .margin({ bottom: $r('app.float.large_margin') })
-
-          Button($r('app.string.retry'))
-            .onClick(() => {
-              this.loadNews();
-            })
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .padding($r('app.float.page_padding'))
-      } else if (this.newsItems.length === 0) {
-        Column() {
-          Text($r('app.string.empty_title'))
-            .fontSize($r('app.float.subtitle_font_size'))
-            .fontWeight(FontWeight.Bold)
-            .margin({ bottom: $r('app.float.medium_margin') })
-
-          Text($r('app.string.empty_message'))
-            .fontSize($r('app.float.secondary_font_size'))
-            .fontColor(Color.Grey)
-            .textAlign(TextAlign.Center)
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .padding($r('app.float.page_padding'))
-      } else {
-        NewsList({ newsItems: this.newsItems, formatTime: this.formatPublishTime.bind(this) })
+        Button('刷新')
+          .fontSize(14)
+          .backgroundColor('#f0f0f0')
+          .fontColor('#333333')
+          .onClick(() => this.loadChannelNews())
       }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .backgroundColor('#ffffff')
+
+      // 频道切换Tab
+      Tabs({ index: this.currentChannelIndex }) {
+        ForEach(this.channels, (channel: Channel, index: number) => {
+          TabContent() {
+            if (this.loading) {
+              Column() {
+                LoadingProgress()
+                  .width(50)
+                  .height(50)
+                  .color('#1890ff')
+
+                Text('加载中...')
+                  .fontSize(14)
+                  .fontColor('#999999')
+                  .margin({ top: 16 })
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+            } else if (this.error) {
+              Column() {
+                Text('⚠️')
+                  .fontSize(48)
+                  .margin({ bottom: 16 })
+
+                Text(this.error)
+                  .fontSize(14)
+                  .fontColor('#999999')
+                  .textAlign(TextAlign.Center)
+                  .margin({ bottom: 16 })
+
+                Button('重试')
+                  .onClick(() => this.loadChannelNews())
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+              .padding(16)
+            } else if (this.newsItems.length === 0) {
+              Column() {
+                Text('暂无内容')
+                  .fontSize(16)
+                  .fontColor('#999999')
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+            } else {
+              NewsList({
+                newsItems: this.newsItems,
+                onItemClick: (item: NewsItem): void => this.openArticle(item)
+              })
+            }
+          }
+          .tabBar(channel.name)
+        }, (channel: Channel) => channel.id)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .barMode(BarMode.Fixed)
+      .onChange((index: number) => this.onChannelChange(index))
     }
     .width('100%')
     .height('100%')
+    .backgroundColor('#f5f5f5')
   }
 }
 
 @Component
 struct NewsList {
   @Prop newsItems: NewsItem[];
-  formatTime: (timestamp: number) => string;
+  onItemClick: (item: NewsItem) => void = () => {
+  };
 
   build() {
-    List({ space: $r('app.float.list_item_spacing') }) {
-      LazyForEach(
-        new NewsDataSource(this.newsItems),
-        (item: NewsItem) => {
-          ListItem() {
-            NewsItemRow({ newsItem: item, formatTime: this.formatTime })
-          }
-          .padding({
-            left: $r('app.float.page_padding'),
-            right: $r('app.float.page_padding'),
-            top: $r('app.float.list_item_padding'),
-            bottom: $r('app.float.list_item_padding')
+    List({ space: 8 }) {
+      ForEach(this.newsItems, (item: NewsItem) => {
+        ListItem() {
+          NewsItemRow({
+            newsItem: item
           })
+            .onClick(() => this.onItemClick(item))
         }
-      )
+      }, (item: NewsItem) => item.id)
     }
     .width('100%')
     .height('100%')
-    .padding({ top: $r('app.float.page_padding'), bottom: $r('app.float.page_padding') })
-    .scrollBar(BarState.On)
+    .padding({
+      left: 12,
+      right: 12,
+      top: 8,
+      bottom: 8
+    })
+    .scrollBar(BarState.Auto)
   }
 }
 
 @Component
 struct NewsItemRow {
   @Prop newsItem: NewsItem;
-  formatTime: (timestamp: number) => string;
+  private onClickCallback: () => void = () => {
+  };
 
   build() {
     Column() {
       Text(this.newsItem.title)
-        .fontSize($r('app.float.title_font_size'))
+        .fontSize(16)
         .fontWeight(FontWeight.Medium)
+        .fontColor('#000000')
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ bottom: $r('app.float.small_margin') })
+        .lineHeight(22)
+        .margin({ bottom: 8 })
+      Row() {
+        if (this.newsItem.extra?.info && typeof this.newsItem.extra.info === 'string') {
+          Text(this.newsItem.extra.info)
+            .fontSize(12)
+            .fontColor('#999999')
+            .margin({ right: 8 })
+        }
 
-      Row({ space: $r('app.float.small_margin') }) {
-        Text(this.newsItem.source)
-          .fontSize($r('app.float.secondary_font_size'))
-          .fontColor(Color.Grey)
+        Blank()
 
-        Text('•')
-          .fontSize($r('app.float.secondary_font_size'))
-          .fontColor(Color.Grey)
-
-        Text(this.formatTime(this.newsItem.publishTime))
-          .fontSize($r('app.float.secondary_font_size'))
-          .fontColor(Color.Grey)
+        Text(this.newsItem.getFormattedTime())
+          .fontSize(12)
+          .fontColor('#999999')
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .backgroundColor('#f5f5f5')
-    .borderRadius($r('app.float.list_item_border_radius'))
-    .padding($r('app.float.list_item_padding'))
+    .backgroundColor('#ffffff')
+    .borderRadius(8)
+    .padding(12)
+    .onClick(() => {
+      this.onClickCallback();
+    })
   }
 }
 
-class NewsDataSource extends BasicDataSource {
-  private newsItems: NewsItem[] = [];
-
-  constructor(items: NewsItem[]) {
-    super();
-    this.newsItems = items;
-  }
-
-  totalCount(): number {
-    return this.newsItems.length;
-  }
-
-  getDataByIndex(index: number): NewsItem | null {
-    if (index >= 0 && index < this.newsItems.length) {
-      return this.newsItems[index];
-    }
-    return null;
-  }
-}
-
-abstract class BasicDataSource implements IDataSource {
-  private listeners: DataChangeListener[] = [];
-
-  onDataReloaded(): void {
-    this.listeners.forEach(listener => {
-      listener.onDataReloaded();
-    });
-  }
-
-  onDataAdded(index: number): void {
-    this.listeners.forEach(listener => {
-      listener.onDataAdded(index);
-    });
-  }
-
-  onDataChanged(index: number): void {
-    this.listeners.forEach(listener => {
-      listener.onDataChanged(index);
-    });
-  }
-
-  onDataDeleted(index: number): void {
-    this.listeners.forEach(listener => {
-      listener.onDataDeleted(index);
-    });
-  }
-
-  onDataMoved(from: number, to: number): void {
-    this.listeners.forEach(listener => {
-      listener.onDataMoved(from, to);
-    });
-  }
-
-  registerDataChangeListener(listener: DataChangeListener): void {
-    if (this.listeners.indexOf(listener) < 0) {
-      this.listeners.push(listener);
-    }
-  }
-
-  unregisterDataChangeListener(listener: DataChangeListener): void {
-    const pos = this.listeners.indexOf(listener);
-    if (pos >= 0) {
-      this.listeners.splice(pos, 1);
-    }
-  }
-
-  abstract totalCount(): number;
-
-  abstract getDataByIndex(index: number): NewsItem | null;
-}
