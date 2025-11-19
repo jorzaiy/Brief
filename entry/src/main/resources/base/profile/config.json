@@ -1,0 +1,6 @@
+{
+  "newsApi": {
+    "baseUrl": "https://newsnow-api.example.com",
+    "defaultSourceId": "source_1"
+  }
+}
