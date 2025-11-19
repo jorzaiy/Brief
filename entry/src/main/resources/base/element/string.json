@@ -11,6 +11,58 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "loading",
+      "value": "Loading news..."
+    },
+    {
+      "name": "error_title",
+      "value": "Error Loading News"
+    },
+    {
+      "name": "error_message",
+      "value": "Failed to load news items. Please try again."
+    },
+    {
+      "name": "retry",
+      "value": "Retry"
+    },
+    {
+      "name": "empty_title",
+      "value": "No News Available"
+    },
+    {
+      "name": "empty_message",
+      "value": "There are no news items to display at the moment."
+    },
+    {
+      "name": "just_now",
+      "value": "just now"
+    },
+    {
+      "name": "minute_ago",
+      "value": "minute ago"
+    },
+    {
+      "name": "minutes_ago",
+      "value": "minutes ago"
+    },
+    {
+      "name": "hour_ago",
+      "value": "hour ago"
+    },
+    {
+      "name": "hours_ago",
+      "value": "hours ago"
+    },
+    {
+      "name": "day_ago",
+      "value": "day ago"
+    },
+    {
+      "name": "days_ago",
+      "value": "days ago"
     }
   ]
 }

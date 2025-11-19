@@ -3,6 +3,50 @@
     {
       "name": "page_text_font_size",
       "value": "50fp"
+    },
+    {
+      "name": "title_font_size",
+      "value": "16fp"
+    },
+    {
+      "name": "subtitle_font_size",
+      "value": "18fp"
+    },
+    {
+      "name": "secondary_font_size",
+      "value": "12fp"
+    },
+    {
+      "name": "page_padding",
+      "value": "16vp"
+    },
+    {
+      "name": "list_item_padding",
+      "value": "12vp"
+    },
+    {
+      "name": "list_item_spacing",
+      "value": "8vp"
+    },
+    {
+      "name": "list_item_border_radius",
+      "value": "8vp"
+    },
+    {
+      "name": "small_margin",
+      "value": "4vp"
+    },
+    {
+      "name": "medium_margin",
+      "value": "8vp"
+    },
+    {
+      "name": "large_margin",
+      "value": "16vp"
+    },
+    {
+      "name": "loading_size",
+      "value": "48vp"
     }
   ]
 }
