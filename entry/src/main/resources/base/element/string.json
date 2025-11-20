@@ -67,6 +67,10 @@
     {
       "name": "internet_permission_reason",
       "value": "需要访问网络以获取新闻内容"
+    },
+    {
+      "name": "notification_permission_reason",
+      "value": "需要发送通知以提醒关键词匹配的新闻"
     }
   ]
 }
