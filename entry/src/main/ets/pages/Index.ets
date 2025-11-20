@@ -3,6 +3,8 @@ import { NewsService } from '../common/network/newsService';
 import { ChannelManager, Channel } from '../common/models/ChannelManager';
 import { router } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { KeywordNotificationService } from '../common/notification/KeywordNotificationService';
+import { KeywordManager } from '../common/models/KeywordManager';
 
 @Entry
 @Component
@@ -47,11 +49,42 @@ struct Index {
       this.loading = false;
 
       hilog.info(0x0000, 'Index', `Loaded ${this.newsItems.length} news items`);
+
+      // Check for keyword matches in Follow channel and send notifications
+      if (currentChannel.type === 'followed' && this.newsItems.length > 0) {
+        this.checkAndNotifyKeywordMatches(this.newsItems);
+      }
     } catch (err) {
       this.loading = false;
       this.error = err instanceof Error ? err.message : '加载失败';
       hilog.error(0x0000, 'Index', 'Error loading news: %{public}s', this.error);
     }
+  }
+
+  private checkAndNotifyKeywordMatches(newsItems: NewsItem[]) {
+    // Run async in background to not block UI
+    setTimeout(async () => {
+      try {
+        if (!KeywordNotificationService.isInitialized()) {
+          hilog.warn(0x0000, 'Index', 'Notification service not initialized yet');
+          return;
+        }
+
+        // Filter news items that match keywords
+        const matches = newsItems.filter(item => {
+          const titleMatch = KeywordManager.matchesKeyword(item.title);
+          const descMatch = item.description ? KeywordManager.matchesKeyword(item.description) : false;
+          return titleMatch || descMatch;
+        });
+
+        if (matches.length > 0) {
+          hilog.info(0x0000, 'Index', `Found ${matches.length} keyword matches`);
+          await KeywordNotificationService.notifyNewMatches(matches);
+        }
+      } catch (err) {
+        hilog.error(0x0000, 'Index', 'Error checking keyword matches: %{public}s', JSON.stringify(err));
+      }
+    }, 0);
   }
 
   onChannelChange(index: number) {
