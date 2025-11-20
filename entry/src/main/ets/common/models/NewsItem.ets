@@ -32,6 +32,7 @@ export class NewsItem {
   extra?: NewsItemExtra;
   description?: string;
   author?: string;
+  matchedKeywords?: string[]; // Optional property to store matched keywords
 
   constructor(source: SourceItem) {
     this.id = String(source.id || '');

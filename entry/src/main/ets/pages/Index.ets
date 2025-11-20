@@ -5,6 +5,7 @@ import { router } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { KeywordNotificationService } from '../common/notification/KeywordNotificationService';
 import { KeywordManager } from '../common/models/KeywordManager';
+import { KeywordMatcher } from '../common/utils/KeywordMatcher';
 
 @Entry
 @Component
@@ -14,10 +15,43 @@ struct Index {
   @State newsItems: NewsItem[] = [];
   @State loading: boolean = false;
   @State error: string = '';
+  @StorageLink('user_keywords') @Watch('onKeywordsChange') keywords: string[] = KeywordManager.getKeywords();
+  @State allNewsItems: NewsItem[] = []; // Raw news data before filtering
 
   aboutToAppear() {
     this.channels = ChannelManager.getChannels();
     this.loadChannelNews();
+  }
+
+  // Filter news items based on keywords for Follow channel
+  private filterNewsByKeywords(newsItems: NewsItem[]): NewsItem[] {
+    const currentChannel = this.channels[this.currentChannelIndex];
+    
+    // Only filter Follow channel, leave Hot/Realtimes untouched
+    if (currentChannel.type !== 'followed') {
+      return newsItems;
+    }
+
+    // If no keywords, return empty array for Follow channel
+    if (!this.keywords || this.keywords.length === 0) {
+      hilog.info(0x0000, 'Index', 'No keywords configured for Follow channel, showing empty state');
+      return [];
+    }
+
+    // Filter using KeywordMatcher
+    const filteredItems = KeywordMatcher.filterByKeywords(newsItems, this.keywords);
+    hilog.info(0x0000, 'Index', `Follow channel: ${newsItems.length} total items -> ${filteredItems.length} filtered items`);
+    
+    return filteredItems;
+  }
+
+  // Watch for keyword changes and re-filter
+  onKeywordsChange() {
+    const currentChannel = this.channels[this.currentChannelIndex];
+    if (currentChannel.type === 'followed' && this.allNewsItems.length > 0) {
+      hilog.info(0x0000, 'Index', 'Keywords changed, re-filtering Follow channel');
+      this.newsItems = this.filterNewsByKeywords(this.allNewsItems);
+    }
   }
 
   async loadChannelNews() {
@@ -44,11 +78,15 @@ struct Index {
       // 按时间排序
       allNews.sort((a, b) => b.pubDate - a.pubDate);
 
-      // 取前50条
-      this.newsItems = allNews.slice(0, 50);
+      // Store raw data (for re-filtering when keywords change)
+      this.allNewsItems = allNews.slice(0, 50);
+
+      // Apply keyword filtering for Follow channel
+      this.newsItems = this.filterNewsByKeywords(this.allNewsItems);
+      
       this.loading = false;
 
-      hilog.info(0x0000, 'Index', `Loaded ${this.newsItems.length} news items`);
+      hilog.info(0x0000, 'Index', `Loaded ${this.newsItems.length} news items (filtered from ${this.allNewsItems.length} total)`);
 
       // Check for keyword matches in Follow channel and send notifications
       if (currentChannel.type === 'followed' && this.newsItems.length > 0) {
@@ -91,6 +129,7 @@ struct Index {
     if (this.currentChannelIndex !== index) {
       this.currentChannelIndex = index;
       this.newsItems = [];
+      this.allNewsItems = [];
       this.loadChannelNews();
     }
   }
@@ -172,15 +211,72 @@ struct Index {
               .alignItems(HorizontalAlign.Center)
               .padding(16)
             } else if (this.newsItems.length === 0) {
-              Column() {
-                Text('暂无内容')
-                  .fontSize(16)
-                  .fontColor('#999999')
+              const currentChannel = this.channels[this.currentChannelIndex];
+              if (currentChannel.type === 'followed') {
+                // Special empty states for Follow channel
+                if (!this.keywords || this.keywords.length === 0) {
+                  Column() {
+                    Text('📝')
+                      .fontSize(48)
+                      .margin({ bottom: 16 })
+
+                    Text('暂无关键词')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor('#333333')
+                      .margin({ bottom: 8 })
+
+                    Text('配置关键词以筛选关注内容')
+                      .fontSize(14)
+                      .fontColor('#999999')
+                      .textAlign(TextAlign.Center)
+                  }
+                  .width('100%')
+                  .height('100%')
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
+                  .padding(16)
+                } else {
+                  Column() {
+                    Text('🔍')
+                      .fontSize(48)
+                      .margin({ bottom: 16 })
+
+                    Text('暂无匹配内容')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor('#333333')
+                      .margin({ bottom: 8 })
+
+                    Text(`未找到包含关键词 "${this.keywords.slice(0, 3).join('", "')}"${this.keywords.length > 3 ? ' 等' : ''} 的内容`)
+                      .fontSize(14)
+                      .fontColor('#999999')
+                      .textAlign(TextAlign.Center)
+                      .margin({ bottom: 16 })
+
+                    Button('刷新')
+                      .fontSize(14)
+                      .backgroundColor('#f0f0f0')
+                      .fontColor('#333333')
+                      .onClick(() => this.loadChannelNews())
+                  }
+                  .width('100%')
+                  .height('100%')
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
+                  .padding(16)
+                }
+              } else {
+                Column() {
+                  Text('暂无内容')
+                    .fontSize(16)
+                    .fontColor('#999999')
+                }
+                .width('100%')
+                .height('100%')
+                .justifyContent(FlexAlign.Center)
+                .alignItems(HorizontalAlign.Center)
               }
-              .width('100%')
-              .height('100%')
-              .justifyContent(FlexAlign.Center)
-              .alignItems(HorizontalAlign.Center)
             } else {
               NewsList({
                 newsItems: this.newsItems,
@@ -247,6 +343,24 @@ struct NewsItemRow {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .lineHeight(22)
         .margin({ bottom: 8 })
+      
+      // Show matched keywords if available
+      if (this.newsItem.matchedKeywords && this.newsItem.matchedKeywords.length > 0) {
+        Row() {
+          ForEach(this.newsItem.matchedKeywords.slice(0, 3), (keyword: string) => {
+            Text(keyword)
+              .fontSize(10)
+              .fontColor('#1890ff')
+              .backgroundColor('#e6f7ff')
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .borderRadius(4)
+              .margin({ right: 6, bottom: 6 })
+          }, (keyword: string) => keyword)
+        }
+        .width('100%')
+        .margin({ bottom: 4 })
+      }
+      
       Row() {
         if (this.newsItem.extra?.info && typeof this.newsItem.extra.info === 'string') {
           Text(this.newsItem.extra.info)

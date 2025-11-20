@@ -1,6 +1,7 @@
 import { preferences } from '@kit.ArkData';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { Context } from '@kit.AbilityKit';
+import { AppStorage } from '@kit.ArkUI';
 
 export class KeywordManager {
   private static readonly PREF_NAME = 'BriefPreferences';
@@ -31,6 +32,7 @@ export class KeywordManager {
     try {
       if (!this.prefsStore) {
         this.keywords = [...this.DEFAULT_KEYWORDS];
+        AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
         return;
       }
 
@@ -40,9 +42,14 @@ export class KeywordManager {
       if (!Array.isArray(this.keywords) || this.keywords.length === 0) {
         this.keywords = [...this.DEFAULT_KEYWORDS];
       }
+      
+      // Initialize AppStorage with loaded keywords
+      AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
+      hilog.info(0x0000, 'KeywordManager', 'Keywords loaded and stored in AppStorage: %{public}s', JSON.stringify(this.keywords));
     } catch (err) {
       hilog.error(0x0000, 'KeywordManager', 'Failed to load keywords: %{public}s', JSON.stringify(err));
       this.keywords = [...this.DEFAULT_KEYWORDS];
+      AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
     }
   }
 
@@ -67,6 +74,9 @@ export class KeywordManager {
     if (keyword && !this.keywords.includes(keyword)) {
       this.keywords.push(keyword);
       await this.saveKeywords();
+      // Update AppStorage for reactive UI updates
+      AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
+      hilog.info(0x0000, 'KeywordManager', 'Keyword added to AppStorage: %{public}s', keyword);
     }
   }
 
@@ -75,12 +85,18 @@ export class KeywordManager {
     if (index > -1) {
       this.keywords.splice(index, 1);
       await this.saveKeywords();
+      // Update AppStorage for reactive UI updates
+      AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
+      hilog.info(0x0000, 'KeywordManager', 'Keyword removed from AppStorage: %{public}s', keyword);
     }
   }
 
   static async setKeywords(keywords: string[]): Promise<void> {
     this.keywords = keywords;
     await this.saveKeywords();
+    // Update AppStorage for reactive UI updates
+    AppStorage.SetOrCreate('user_keywords', [...this.keywords]);
+    hilog.info(0x0000, 'KeywordManager', 'Keywords updated in AppStorage: %{public}s', JSON.stringify(this.keywords));
   }
 
   static matchesKeyword(text: string): boolean {
